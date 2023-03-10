@@ -1,6 +1,8 @@
 # Make quote
 
-This library providesa a single function that can generate a quote image from user input.
+This library provides a single function that can generate a quote image from user input.
+It is still under development, further document and crates.io dependencies will be released
+someday.
 
 ## Usage
 

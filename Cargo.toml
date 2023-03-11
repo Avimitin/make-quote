@@ -2,6 +2,13 @@
 name = "make-quote"
 version = "0.1.0"
 edition = "2021"
+authors = ["Avimitin <dev@avimit.in>"]
+description = "A funny toy project that can help you generate a image from someone's quote"
+documentation = "https://docs.rs/make-quote"
+keywords = ["image", "generate"]
+license = "MIT"
+readme = "readme.md"
+repository = "https://github.com/Avimitin/make-quote"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

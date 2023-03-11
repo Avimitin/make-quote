@@ -1,9 +1,35 @@
 //! This library provide a single function [`make_quote_image`] to turn somebody's quote into an
-//! image. Example image can be viewed at GitHub repository.
+//! image.
 //!
 //! This is not an feature rich library. You may meet some draw issue. Feel free to open issue
 //! at GitHub to help me improve this library. Currently the best practice is to set the output
 //! size to 1920x1080.
+//!
+//! # Usage
+//!
+//! ```rust
+//! // First of all, load an font into memory
+//! let font = load_font("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
+//!
+//! // Create a configuration about one image
+//! let config = Configuration::builder()
+//!     .output_size(1920, 1080)
+//!     .font(&font)
+//!     .avatar_path("./assets/avatar.png")
+//!     .quote("大家好，今天来点大家想看的东西。")
+//!     .username("V5电竞俱乐部中单选手 Otto")
+//!     .build();
+//!
+//! // Then generate the image and get the image buffer
+//! let buffer = make_quote_image(&config).unwrap();
+//!
+//! // You can do anything you like to the buffer, save it or just send it through the net.
+//! std::fs::write("./assets/test.jpg", buffer).unwrap();
+//! ```
+//!
+//! This will generate the below output:
+//!
+//! <img src="https://github.com/Avimitin/make-quote/raw/master/assets/test.jpg"/>
 
 use std::fmt::Display;
 use std::io::Cursor;

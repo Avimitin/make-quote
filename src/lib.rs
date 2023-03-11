@@ -5,15 +5,14 @@
 //! at GitHub to help me improve this library. Currently the best practice is to set the output
 //! size to 1920x1080.
 
+use std::io::Cursor;
+
 use image::{
     imageops::{self, FilterType},
-    ImageBuffer, Pixel, Rgba, RgbaImage,
+    ImageBuffer, ImageError, ImageFormat, Pixel, Rgba, RgbaImage,
 };
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
-
-const QUOTE_UNIFORM_SCALE: f32 = 120.0;
-const USERNAME_UNIFORM_SCALE: f32 = 80.0;
 
 /// Configuration describe how to genrate the image.
 pub struct Configuration {
@@ -22,19 +21,31 @@ pub struct Configuration {
     username: String,
     avatar_path: String,
     font_path: String,
-    output_path: String,
+
+    quote_font_scale: Option<f32>,
+    username_font_scale: Option<f32>,
 }
+
+#[derive(thiserror::Error, Debug)]
+pub enum ErrorKind {
+    #[error("internal image library error: {0}")]
+    ImgErr(#[from] ImageError),
+    #[error("fail to read font: {0}")]
+    FontErr(#[from] std::io::Error),
+}
+
+type Result<T, E = ErrorKind> = core::result::Result<T, E>;
 
 /// Alias to the RGBA image buffer type
 type RgbaImgBuf = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-/// Make an image base on somebody's quote.
-pub fn make_quote_image(config: &Configuration) {
+/// Make an image base on somebody's quote. Return bytes encoded in JPEG format.
+pub fn make_quote_image(config: &Configuration) -> Result<Vec<u8>> {
     let black = Rgba([0, 0, 0, 255]);
     let (bg_width, bg_height) = config.output_size;
 
     let mut background = RgbaImage::from_pixel(bg_width, bg_height, black);
-    let avatar = make_avatar(config);
+    let avatar = make_avatar(config)?;
     let gradient = make_gradient_overlay(config, avatar.width());
 
     // Step 1: Overlay avatar to background
@@ -45,10 +56,11 @@ pub fn make_quote_image(config: &Configuration) {
     imageops::overlay(&mut background, &gradient, offset, 0);
 
     // Step 3: Draw font on background
-    draw_quote(&mut background, config, avatar.width());
+    draw_quote(&mut background, config, avatar.width())?;
 
-    // Step Final: Save
-    background.save(&config.output_path).unwrap();
+    let mut buffer = Cursor::new(Vec::new());
+    background.write_to(&mut buffer, ImageFormat::Jpeg)?;
+    Ok(buffer.into_inner())
 }
 
 /// Split long string to multiline
@@ -67,13 +79,15 @@ fn split_quotes(quote: &str) -> Vec<String> {
 }
 
 /// Draw quote on background
-fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
-    let font = read_font(config);
+fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) -> Result<()> {
+    let font = read_font(config)?;
     let white = Rgba([255, 255, 255, 255]);
     let gray = Rgba([147, 147, 147, 255]);
     let (bg_width, bg_height) = config.output_size;
-    let quote_text_scale = Scale::uniform(QUOTE_UNIFORM_SCALE);
-    let username_text_scale = Scale::uniform(USERNAME_UNIFORM_SCALE);
+    let quote_font_scale = config.quote_font_scale.unwrap_or(120.0);
+    let username_font_scale = config.username_font_scale.unwrap_or(80.0);
+    let quote_text_scale = Scale::uniform(quote_font_scale);
+    let username_text_scale = Scale::uniform(username_font_scale);
 
     let quote_lines = split_quotes(&config.quote);
     let (quote_text_width, quote_text_height) =
@@ -95,7 +109,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
             &quote,
         );
 
-        text_draw_y_offset += QUOTE_UNIFORM_SCALE as i32;
+        text_draw_y_offset += quote_font_scale as i32;
     }
 
     let (usr_text_width, _) =
@@ -105,17 +119,19 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
         bg,
         gray,
         text_draw_x_offset,
-        text_draw_y_offset + (QUOTE_UNIFORM_SCALE as i32),
+        text_draw_y_offset + (quote_font_scale as i32),
         username_text_scale,
         &font,
         &format!("– {}", config.username),
     );
+
+    Ok(())
 }
 
 // TODO: return Result
 /// Scale and crop the avatar to fit the background.
-fn make_avatar(cfg: &Configuration) -> RgbaImgBuf {
-    let buffer = image::open(&cfg.avatar_path).unwrap().into_rgba8();
+fn make_avatar(cfg: &Configuration) -> Result<RgbaImgBuf> {
+    let buffer = image::open(&cfg.avatar_path)?.into_rgba8();
 
     let ratio = buffer.width() as f32 / buffer.height() as f32;
     let bg_height = cfg.output_size.1;
@@ -126,7 +142,7 @@ fn make_avatar(cfg: &Configuration) -> RgbaImgBuf {
 
     // crop 1/4 from left
     let keep_width = buffer.width() - (buffer.width() / 4);
-    imageops::crop(&mut buffer, new_width / 4, 0, keep_width, bg_height).to_image()
+    Ok(imageops::crop(&mut buffer, new_width / 4, 0, keep_width, bg_height).to_image())
 }
 
 /// Create a transparent to black gradient overlay
@@ -138,11 +154,18 @@ fn make_gradient_overlay(cfg: &Configuration, avatar_width: u32) -> RgbaImgBuf {
     gradient_overlay
 }
 
-// TODO: return Result
 /// Read a font file into memory
-fn read_font(cfg: &Configuration) -> Font {
-    let file = std::fs::read(&cfg.font_path).unwrap();
-    Font::try_from_vec(file).unwrap()
+fn read_font(cfg: &Configuration) -> Result<Font> {
+    let file = std::fs::read(&cfg.font_path)?;
+    let font = Font::try_from_vec(file);
+    if font.is_none() {
+        return Err(ErrorKind::FontErr(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Invalid font",
+        )));
+    }
+
+    Ok(font.unwrap())
 }
 
 #[test]
@@ -151,14 +174,16 @@ fn test_create_background_image() {
 
     let config = Configuration {
         output_size: (1920, 1080),
-        output_path: "./assets/test.jpg".to_string(),
         font_path: "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc".to_string(),
         avatar_path: "./assets/avatar.png".to_string(),
         quote: "大家好，今天来点大家想看的东西。".to_string(),
         username: "V5电竞俱乐部中单选手 Otto".to_string(),
+        quote_font_scale: None,
+        username_font_scale: None,
     };
 
     let now = Instant::now();
-    make_quote_image(&config);
+    let buffer = make_quote_image(&config).unwrap();
+    std::fs::write("./assets/test.jpg", buffer).unwrap();
     println!("elapsed: {} ms", now.elapsed().as_millis());
 }

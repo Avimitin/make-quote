@@ -1,3 +1,10 @@
+//! This library provide a single function [`make_quote_image`] to turn somebody's quote into an
+//! image. Example image can be viewed at GitHub repository.
+//!
+//! This is not an feature rich library. You may meet some draw issue. Feel free to open issue
+//! at GitHub to help me improve this library. Currently the best practice is to set the output
+//! size to 1920x1080.
+
 use image::{
     imageops::{self, FilterType},
     ImageBuffer, Pixel, Rgba, RgbaImage,
@@ -8,6 +15,7 @@ use rusttype::{Font, Scale};
 const QUOTE_UNIFORM_SCALE: f32 = 120.0;
 const USERNAME_UNIFORM_SCALE: f32 = 80.0;
 
+/// Configuration describe how to genrate the image.
 pub struct Configuration {
     output_size: (u32, u32),
     quote: String,
@@ -17,8 +25,10 @@ pub struct Configuration {
     output_path: String,
 }
 
-pub type RgbaImgBuf = ImageBuffer<Rgba<u8>, Vec<u8>>;
+/// Alias to the RGBA image buffer type
+type RgbaImgBuf = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
+/// Make an image base on somebody's quote.
 pub fn make_quote_image(config: &Configuration) {
     let black = Rgba([0, 0, 0, 255]);
     let (bg_width, bg_height) = config.output_size;
@@ -41,6 +51,7 @@ pub fn make_quote_image(config: &Configuration) {
     background.save(&config.output_path).unwrap();
 }
 
+/// Split long string to multiline
 fn split_quotes(quote: &str) -> Vec<String> {
     let max_length = 12;
     quote
@@ -55,6 +66,7 @@ fn split_quotes(quote: &str) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
+/// Draw quote on background
 fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
     let font = read_font(config);
     let white = Rgba([255, 255, 255, 255]);
@@ -101,6 +113,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
 }
 
 // TODO: return Result
+/// Scale and crop the avatar to fit the background.
 fn make_avatar(cfg: &Configuration) -> RgbaImgBuf {
     let buffer = image::open(&cfg.avatar_path).unwrap().into_rgba8();
 
@@ -116,6 +129,7 @@ fn make_avatar(cfg: &Configuration) -> RgbaImgBuf {
     imageops::crop(&mut buffer, new_width / 4, 0, keep_width, bg_height).to_image()
 }
 
+/// Create a transparent to black gradient overlay
 fn make_gradient_overlay(cfg: &Configuration, avatar_width: u32) -> RgbaImgBuf {
     let mut gradient_overlay = RgbaImage::new(avatar_width / 3, cfg.output_size.1);
     let start = Rgba::from_slice(&[0, 0, 0, 0]);
@@ -125,6 +139,7 @@ fn make_gradient_overlay(cfg: &Configuration, avatar_width: u32) -> RgbaImgBuf {
 }
 
 // TODO: return Result
+/// Read a font file into memory
 fn read_font(cfg: &Configuration) -> Font {
     let file = std::fs::read(&cfg.font_path).unwrap();
     Font::try_from_vec(file).unwrap()

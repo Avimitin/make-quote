@@ -1,7 +1,7 @@
 # Make quote
 
 [<img alt="crates.io" src="https://img.shields.io/crates/v/make-quote.svg?style=flat&color=fd7726&labelColor=252535&logo=rust" height="20">](https://crates.io/crates/make-quote)
-[<img alt="docs.rs" src="https://img.shields.io/docsrs/make-quote?color=2b5a28&logo=rust&labelColor=252535" height="20">](https://docs.rs/deepl/latest/make-qutoe/)
+[<img alt="docs.rs" src="https://img.shields.io/docsrs/make-quote?color=2b5a28&logo=rust&labelColor=252535" height="20">](https://docs.rs/make-quote/)
 
 This library provides a single function that can generate a quote image from user input.
 It is still under development, further document and crates.io dependencies will be released

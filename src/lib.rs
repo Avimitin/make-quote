@@ -5,6 +5,9 @@ use image::{
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
 
+const QUOTE_UNIFORM_SCALE: f32 = 120.0;
+const USERNAME_UNIFORM_SCALE: f32 = 80.0;
+
 pub struct Configuration {
     output_size: (u32, u32),
     quote: String,
@@ -57,8 +60,8 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
     let white = Rgba([255, 255, 255, 255]);
     let gray = Rgba([147, 147, 147, 255]);
     let (bg_width, bg_height) = config.output_size;
-    let quote_text_scale = Scale::uniform(120.0);
-    let username_text_scale = Scale::uniform(80.0);
+    let quote_text_scale = Scale::uniform(QUOTE_UNIFORM_SCALE);
+    let username_text_scale = Scale::uniform(USERNAME_UNIFORM_SCALE);
 
     let quote_lines = split_quotes(&config.quote);
     let (quote_text_width, quote_text_height) =
@@ -67,7 +70,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
     let blank_width = bg_width - avatar_width;
     let text_gap = blank_width as i32 - quote_text_width;
     let text_draw_x_offset: i32 = avatar_width as i32 + (text_gap / 2);
-    let mut text_draw_y_offset: i32 = (bg_height as i32 / 2) - quote_text_height;
+    let mut text_draw_y_offset: i32 = (bg_height as i32 / 3) - quote_text_height;
 
     for quote in split_quotes(&config.quote) {
         draw_text_mut(
@@ -80,7 +83,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
             &quote,
         );
 
-        text_draw_y_offset += 120;
+        text_draw_y_offset += QUOTE_UNIFORM_SCALE as i32;
     }
 
     let (usr_text_width, _) =
@@ -90,7 +93,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
         bg,
         gray,
         text_draw_x_offset,
-        text_draw_y_offset + (quote_text_scale.x as i32),
+        text_draw_y_offset + (QUOTE_UNIFORM_SCALE as i32),
         username_text_scale,
         &font,
         &format!("– {}", config.username),

@@ -5,7 +5,9 @@
 //! at GitHub to help me improve this library. Currently the best practice is to set the output
 //! size to 1920x1080.
 
+use std::fmt::Display;
 use std::io::Cursor;
+use std::path::{Path, PathBuf};
 
 use image::{
     imageops::{self, FilterType},
@@ -13,16 +15,26 @@ use image::{
 };
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
+use typed_builder::TypedBuilder;
 
 /// Configuration describe how to genrate the image.
+#[derive(TypedBuilder)]
 pub struct Configuration {
+    #[builder(setter( transform = |width: u32, height: u32| (width, height) ))]
     output_size: (u32, u32),
+    #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     quote: String,
+    #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     username: String,
-    avatar_path: String,
-    font_path: String,
 
+    #[builder(setter( transform = |p: impl AsRef<Path>| p.as_ref().to_path_buf() ))]
+    avatar_path: PathBuf,
+    #[builder(setter( transform = |p: impl AsRef<Path>| p.as_ref().to_path_buf() ))]
+    font_path: PathBuf,
+
+    #[builder(default, setter(strip_option))]
     quote_font_scale: Option<f32>,
+    #[builder(default, setter(strip_option))]
     username_font_scale: Option<f32>,
 }
 
@@ -172,15 +184,13 @@ fn read_font(cfg: &Configuration) -> Result<Font> {
 fn test_create_background_image() {
     use std::time::Instant;
 
-    let config = Configuration {
-        output_size: (1920, 1080),
-        font_path: "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc".to_string(),
-        avatar_path: "./assets/avatar.png".to_string(),
-        quote: "大家好，今天来点大家想看的东西。".to_string(),
-        username: "V5电竞俱乐部中单选手 Otto".to_string(),
-        quote_font_scale: None,
-        username_font_scale: None,
-    };
+    let config = Configuration::builder()
+        .output_size(1920, 1080)
+        .font_path("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc")
+        .avatar_path("./assets/avatar.png")
+        .quote("大家好，今天来点大家想看的东西。")
+        .username("V5电竞俱乐部中单选手 Otto")
+        .build();
 
     let now = Instant::now();
     let buffer = make_quote_image(&config).unwrap();

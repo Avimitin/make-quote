@@ -138,9 +138,9 @@ fn test_create_background_image() {
         output_size: (1920, 1080),
         output_path: "./assets/test.jpg".to_string(),
         font_path: "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc".to_string(),
-        avatar_path: "./assets/avatar.jpg".to_string(),
-        quote: "原批原批原批原批原批原批！原批原批！原批原批！".to_string(),
-        username: "嘉然今天吃什么".to_string(),
+        avatar_path: "./assets/avatar.png".to_string(),
+        quote: "大家好，今天来点大家想看的东西。".to_string(),
+        username: "V5电竞俱乐部中单选手 Otto".to_string(),
     };
 
     let now = Instant::now();

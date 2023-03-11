@@ -38,6 +38,20 @@ pub fn make_quote_image(config: &Configuration) {
     background.save(&config.output_path).unwrap();
 }
 
+fn split_quotes(quote: &str) -> Vec<String> {
+    let max_length = 12;
+    quote
+        .lines()
+        .flat_map(|line| {
+            let chars = line.chars().collect::<Vec<_>>();
+            chars
+                .chunks(max_length)
+                .map(|chk| chk.iter().collect::<String>())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<String>>()
+}
+
 fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
     let font = read_font(config);
     let white = Rgba([255, 255, 255, 255]);
@@ -45,21 +59,29 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) {
     let (bg_width, bg_height) = config.output_size;
     let quote_text_scale = Scale::uniform(120.0);
     let username_text_scale = Scale::uniform(80.0);
+
+    let quote_lines = split_quotes(&config.quote);
     let (quote_text_width, quote_text_height) =
-        imageproc::drawing::text_size(quote_text_scale, &font, &config.quote);
+        imageproc::drawing::text_size(quote_text_scale, &font, &quote_lines[0]);
+
     let blank_width = bg_width - avatar_width;
     let text_gap = blank_width as i32 - quote_text_width;
     let text_draw_x_offset: i32 = avatar_width as i32 + (text_gap / 2);
-    let text_draw_y_offset: i32 = (bg_height as i32 / 2) - quote_text_height;
-    draw_text_mut(
-        bg,
-        white,
-        text_draw_x_offset,
-        text_draw_y_offset,
-        quote_text_scale,
-        &font,
-        &config.quote,
-    );
+    let mut text_draw_y_offset: i32 = (bg_height as i32 / 2) - quote_text_height;
+
+    for quote in split_quotes(&config.quote) {
+        draw_text_mut(
+            bg,
+            white,
+            text_draw_x_offset,
+            text_draw_y_offset,
+            quote_text_scale,
+            &font,
+            &quote,
+        );
+
+        text_draw_y_offset += 120;
+    }
 
     let (usr_text_width, _) =
         imageproc::drawing::text_size(username_text_scale, &font, &config.username);
@@ -114,7 +136,7 @@ fn test_create_background_image() {
         output_path: "./assets/test.jpg".to_string(),
         font_path: "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc".to_string(),
         avatar_path: "./assets/avatar.jpg".to_string(),
-        quote: "我超，OP！".to_string(),
+        quote: "原批原批原批原批原批原批！原批原批！原批原批！".to_string(),
         username: "嘉然今天吃什么".to_string(),
     };
 

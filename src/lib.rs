@@ -19,7 +19,7 @@ use typed_builder::TypedBuilder;
 
 /// Configuration describe how to genrate the image.
 #[derive(TypedBuilder)]
-pub struct Configuration {
+pub struct Configuration<'font> {
     #[builder(setter( transform = |width: u32, height: u32| (width, height) ))]
     output_size: (u32, u32),
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
@@ -29,8 +29,8 @@ pub struct Configuration {
 
     #[builder(setter( transform = |p: impl AsRef<Path>| p.as_ref().to_path_buf() ))]
     avatar_path: PathBuf,
-    #[builder(setter( transform = |p: impl AsRef<Path>| p.as_ref().to_path_buf() ))]
-    font_path: PathBuf,
+
+    font: &'font Font<'static>,
 
     #[builder(default, setter(strip_option))]
     quote_font_scale: Option<f32>,
@@ -92,7 +92,7 @@ fn split_quotes(quote: &str) -> Vec<String> {
 
 /// Draw quote on background
 fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) -> Result<()> {
-    let font = read_font(config)?;
+    let font = &config.font;
     let white = Rgba([255, 255, 255, 255]);
     let gray = Rgba([147, 147, 147, 255]);
     let (bg_width, bg_height) = config.output_size;
@@ -103,7 +103,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) ->
 
     let quote_lines = split_quotes(&config.quote);
     let (quote_text_width, quote_text_height) =
-        imageproc::drawing::text_size(quote_text_scale, &font, &quote_lines[0]);
+        imageproc::drawing::text_size(quote_text_scale, font, &quote_lines[0]);
 
     let blank_width = bg_width - avatar_width;
     let text_gap = blank_width as i32 - quote_text_width;
@@ -117,7 +117,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) ->
             text_draw_x_offset,
             text_draw_y_offset,
             quote_text_scale,
-            &font,
+            font,
             &quote,
         );
 
@@ -125,7 +125,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) ->
     }
 
     let (usr_text_width, _) =
-        imageproc::drawing::text_size(username_text_scale, &font, &config.username);
+        imageproc::drawing::text_size(username_text_scale, font, &config.username);
     let text_draw_x_offset = (text_draw_x_offset + quote_text_width / 2) - usr_text_width / 2;
     draw_text_mut(
         bg,
@@ -133,7 +133,7 @@ fn draw_quote(bg: &mut RgbaImgBuf, config: &Configuration, avatar_width: u32) ->
         text_draw_x_offset,
         text_draw_y_offset + (quote_font_scale as i32),
         username_text_scale,
-        &font,
+        font,
         &format!("– {}", config.username),
     );
 
@@ -167,8 +167,8 @@ fn make_gradient_overlay(cfg: &Configuration, avatar_width: u32) -> RgbaImgBuf {
 }
 
 /// Read a font file into memory
-fn read_font(cfg: &Configuration) -> Result<Font> {
-    let file = std::fs::read(&cfg.font_path)?;
+pub fn load_font<P: AsRef<Path>>(p: P) -> Result<Font<'static>> {
+    let file = std::fs::read(p)?;
     let font = Font::try_from_vec(file);
     if font.is_none() {
         return Err(ErrorKind::FontErr(std::io::Error::new(
@@ -184,9 +184,11 @@ fn read_font(cfg: &Configuration) -> Result<Font> {
 fn test_create_background_image() {
     use std::time::Instant;
 
+    let font = load_font("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
+
     let config = Configuration::builder()
         .output_size(1920, 1080)
-        .font_path("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc")
+        .font(&font)
         .avatar_path("./assets/avatar.png")
         .quote("大家好，今天来点大家想看的东西。")
         .username("V5电竞俱乐部中单选手 Otto")

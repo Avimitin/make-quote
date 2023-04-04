@@ -10,20 +10,27 @@ someday.
 ## Usage
 
 ```rust
-// First of all, load an font into memory
-let font = load_font("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
+use make_quote::{QuoteProducer, ImgConfig};
 
-// Create a configuration about one image
-let config = Configuration::builder()
-    .output_size(1920, 1080)
+// First of all, load an font into memory
+let font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
+
+// Create a image producer
+let producer = QuoteProducer::builder()
     .font(&font)
+    .output_size(1920, 1080) // optional
+    .font_scale(120.0)       // optional
+    .build();
+
+// Create image configuration
+let config = ImgConfig::builder()
+    .username("V5电竞俱乐部中单选手 Otto")
     .avatar_path("./assets/avatar.png")
     .quote("大家好，今天来点大家想看的东西。")
-    .username("V5电竞俱乐部中单选手 Otto")
     .build();
 
 // Then generate the image and get the image buffer
-let buffer = make_quote_image(&config).unwrap();
+let buffer = producer.make_image(&config).unwrap();
 
 // You can do anything you like to the buffer, save it or just send it through the net.
 std::fs::write("./assets/test.jpg", buffer).unwrap();

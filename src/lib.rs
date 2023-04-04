@@ -40,9 +40,9 @@
 //!
 //! <img src="https://github.com/Avimitin/make-quote/raw/master/assets/test.jpg"/>
 
+use std::fmt::Display;
 use std::io::Cursor;
 use std::path::Path;
-use std::{fmt::Display, path::PathBuf};
 
 use image::{
     imageops::{self, FilterType},
@@ -75,37 +75,44 @@ pub struct FontSet<'font> {
     light: Font<'font>,
 }
 
-pub enum SpooledData {
-    InMem(Vec<u8>),
-    OnDisk(PathBuf),
+pub enum SpooledData<'data> {
+    InMem(&'data [u8]),
+    OnDisk(&'data Path),
 }
 
-impl From<Vec<u8>> for SpooledData {
-    fn from(value: Vec<u8>) -> Self {
-        Self::InMem(value)
+pub trait AsSpooledData {
+    fn as_spooled_data(&self) -> SpooledData<'_>;
+}
+
+impl<P> AsSpooledData for P
+where
+    P: AsRef<Path>,
+{
+    fn as_spooled_data(&self) -> SpooledData<'_> {
+        SpooledData::OnDisk(self.as_ref())
     }
 }
 
-impl From<&Path> for SpooledData {
-    fn from(value: &Path) -> Self {
-        Self::OnDisk(value.to_path_buf())
+impl AsSpooledData for str {
+    fn as_spooled_data(&self) -> SpooledData<'_> {
+        SpooledData::OnDisk(self.as_ref())
     }
 }
 
-impl From<&str> for SpooledData {
-    fn from(value: &str) -> Self {
-        Self::OnDisk(PathBuf::from(value))
+impl AsSpooledData for [u8] {
+    fn as_spooled_data(&self) -> SpooledData<'_> {
+        SpooledData::InMem(self)
     }
 }
 
 #[derive(TypedBuilder)]
-pub struct ImgConfig {
+pub struct ImgConfig<'a> {
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     quote: String,
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     username: String,
-    #[builder(setter( transform = |p: impl Into<SpooledData>| p.into() ))]
-    avatar: SpooledData,
+    #[builder(setter( transform = |p: &'a (impl AsSpooledData + ?Sized)| p.as_spooled_data() ))]
+    avatar: SpooledData<'a>,
 }
 
 impl<'font> QuoteProducer<'font> {

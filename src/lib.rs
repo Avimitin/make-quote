@@ -14,8 +14,10 @@
 //! let font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
 //!
 //! // Create a image producer
+//! let bold_font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc").unwrap();
+//! let light_font = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
 //! let producer = QuoteProducer::builder()
-//!     .font(&font)
+//!     .font(&bold_font, light_font)
 //!     .output_size(1920, 1080) // optional
 //!     .font_scale(120.0)       // optional
 //!     .build();
@@ -56,10 +58,21 @@ pub struct QuoteProducer<'font> {
     output_size: (u32, u32),
     #[builder(default = 120.0)]
     font_scale: f32,
-    #[builder(setter( transform = |raw: &'font [u8]|
-        Font::try_from_bytes(raw).unwrap_or_else(|| panic!("invalid font data"))
+    #[builder(setter(
+        transform = |bold: &'font [u8], light: &'font [u8]| {
+            let bold = Font::try_from_bytes(bold).unwrap_or_else(|| panic!("invalid bold font data"));
+            let light = Font::try_from_bytes(light).unwrap_or_else(|| panic!("invalid light font data"));
+            FontSet {
+                bold, light
+            }
+        }
     ))]
-    font: Font<'font>,
+    font: FontSet<'font>,
+}
+
+pub struct FontSet<'font> {
+    bold: Font<'font>,
+    light: Font<'font>,
 }
 
 #[derive(TypedBuilder)]
@@ -123,7 +136,6 @@ impl<'font> QuoteProducer<'font> {
 
     /// Draw quote on background
     fn draw_quote(&self, bg: &mut RgbaImgBuf, config: &ImgConfig, avatar_width: u32) -> Result<()> {
-        let font = &self.font;
         let white = Rgba([255, 255, 255, 255]);
         let gray = Rgba([147, 147, 147, 255]);
         let (bg_width, bg_height) = self.output_size;
@@ -134,7 +146,7 @@ impl<'font> QuoteProducer<'font> {
 
         let quote_lines = split_quotes(&config.quote);
         let (quote_text_width, quote_text_height) =
-            imageproc::drawing::text_size(quote_text_scale, font, &quote_lines[0]);
+            imageproc::drawing::text_size(quote_text_scale, &self.font.bold, &quote_lines[0]);
 
         let blank_width = bg_width - avatar_width;
         let text_gap = blank_width as i32 - quote_text_width;
@@ -148,7 +160,7 @@ impl<'font> QuoteProducer<'font> {
                 text_draw_x_offset,
                 text_draw_y_offset,
                 quote_text_scale,
-                font,
+                &self.font.bold,
                 &quote,
             );
 
@@ -156,7 +168,7 @@ impl<'font> QuoteProducer<'font> {
         }
 
         let (usr_text_width, _) =
-            imageproc::drawing::text_size(username_text_scale, font, &config.username);
+            imageproc::drawing::text_size(username_text_scale, &self.font.light, &config.username);
         let text_draw_x_offset = (text_draw_x_offset + quote_text_width / 2) - usr_text_width / 2;
         draw_text_mut(
             bg,
@@ -164,7 +176,7 @@ impl<'font> QuoteProducer<'font> {
             text_draw_x_offset,
             text_draw_y_offset + (quote_font_scale as i32),
             username_text_scale,
-            font,
+            &self.font.light,
             &format!("– {}", config.username),
         );
 
@@ -204,8 +216,11 @@ fn split_quotes(quote: &str) -> Vec<String> {
 fn test_create_background_image() {
     use std::time::Instant;
 
-    let font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
-    let builder = QuoteProducer::builder().font(&font).build();
+    let bold_font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Medium.ttc").unwrap();
+    let light_font = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
+    let builder = QuoteProducer::builder()
+        .font(&bold_font, light_font)
+        .build();
 
     let config = ImgConfig::builder()
         .username("V5电竞俱乐部中单选手 Otto")

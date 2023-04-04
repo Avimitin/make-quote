@@ -40,9 +40,9 @@
 //!
 //! <img src="https://github.com/Avimitin/make-quote/raw/master/assets/test.jpg"/>
 
-use std::fmt::Display;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::{fmt::Display, path::PathBuf};
 
 use image::{
     imageops::{self, FilterType},
@@ -75,14 +75,37 @@ pub struct FontSet<'font> {
     light: Font<'font>,
 }
 
+pub enum SpooledData {
+    InMem(Vec<u8>),
+    OnDisk(PathBuf),
+}
+
+impl From<Vec<u8>> for SpooledData {
+    fn from(value: Vec<u8>) -> Self {
+        Self::InMem(value)
+    }
+}
+
+impl From<&Path> for SpooledData {
+    fn from(value: &Path) -> Self {
+        Self::OnDisk(value.to_path_buf())
+    }
+}
+
+impl From<&str> for SpooledData {
+    fn from(value: &str) -> Self {
+        Self::OnDisk(PathBuf::from(value))
+    }
+}
+
 #[derive(TypedBuilder)]
 pub struct ImgConfig {
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     quote: String,
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
     username: String,
-    #[builder(setter( transform = |p: impl AsRef<Path>| p.as_ref().to_path_buf() ))]
-    avatar_path: PathBuf,
+    #[builder(setter( transform = |p: impl Into<SpooledData>| p.into() ))]
+    avatar: SpooledData,
 }
 
 impl<'font> QuoteProducer<'font> {
@@ -91,7 +114,7 @@ impl<'font> QuoteProducer<'font> {
         let (bg_width, bg_height) = self.output_size;
 
         let mut background = RgbaImage::from_pixel(bg_width, bg_height, black);
-        let avatar = self.produce_avatar(&config.avatar_path)?;
+        let avatar = self.produce_avatar(&config.avatar)?;
         let gradient = self.produce_gradient(avatar.width());
 
         // Step 1: Overlay avatar to background
@@ -110,8 +133,11 @@ impl<'font> QuoteProducer<'font> {
     }
 
     /// Scale and crop the avatar to fit the background.
-    fn produce_avatar(&self, avatar: impl AsRef<Path>) -> Result<RgbaImgBuf> {
-        let buffer = image::open(avatar)?.into_rgba8();
+    fn produce_avatar(&self, avatar: &SpooledData) -> Result<RgbaImgBuf> {
+        let buffer = match avatar {
+            SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
+            SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
+        };
 
         let ratio = buffer.width() as f32 / buffer.height() as f32;
         let bg_height = self.output_size.1;
@@ -224,7 +250,7 @@ fn test_create_background_image() {
 
     let config = ImgConfig::builder()
         .username("V5电竞俱乐部中单选手 Otto")
-        .avatar_path("./assets/avatar.png")
+        .avatar("./assets/avatar.png")
         .quote("大家好，今天来点大家想看的东西。")
         .build();
 

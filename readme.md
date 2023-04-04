@@ -16,8 +16,10 @@ use make_quote::{QuoteProducer, ImgConfig};
 let font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
 
 // Create a image producer
-let producer = QuoteProducer::builder()
-    .font(&font)
+let bold_font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Medium.ttc").unwrap();
+let light_font = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
+let builder = QuoteProducer::builder()
+    .font(&bold_font, light_font)
     .output_size(1920, 1080) // optional
     .font_scale(120.0)       // optional
     .build();

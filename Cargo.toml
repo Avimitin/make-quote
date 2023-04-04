@@ -1,6 +1,6 @@
 [package]
 name = "make-quote"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["Avimitin <dev@avimit.in>"]
 description = "A funny toy project that can help you generate a image from someone's quote"
@@ -18,3 +18,9 @@ imageproc = "0.23.0"
 rusttype = "0.9.3"
 typed-builder = "0.14.0"
 thiserror = "1.0.39"
+
+[profile.release]
+debug = 0
+strip = "symbols"
+lto = true
+opt-level = 3

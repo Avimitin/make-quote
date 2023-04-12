@@ -151,7 +151,7 @@ impl<'font> QuoteProducer<'font> {
         let new_width = (bg_height as f32 * ratio) as u32;
 
         // scale avatar size to background height
-        let mut buffer = imageops::resize(&buffer, new_width, bg_height, FilterType::Nearest);
+        let mut buffer = imageops::resize(&buffer, new_width, bg_height, FilterType::CatmullRom);
 
         // crop 1/4 from left
         let keep_width = buffer.width() - (buffer.width() / 4);

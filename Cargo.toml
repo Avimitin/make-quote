@@ -1,6 +1,6 @@
 [package]
 name = "make-quote"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 authors = ["Avimitin <dev@avimit.in>"]
 description = "A funny toy project that can help you generate a image from someone's quote"

@@ -25,7 +25,7 @@
 //! // Create image configuration
 //! let config = ImgConfig::builder()
 //!     .username("V5电竞俱乐部中单选手 Otto")
-//!     .avatar_path("./assets/avatar.png")
+//!     .avatar("./assets/avatar.png")
 //!     .quote("大家好，今天来点大家想看的东西。")
 //!     .build();
 //!

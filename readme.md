@@ -16,9 +16,9 @@ use make_quote::{QuoteProducer, ImgConfig};
 let font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc").unwrap();
 
 // Create a image producer
-let bold_font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Medium.ttc").unwrap();
+let bold_font = std::fs::read("/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc").unwrap();
 let light_font = include_bytes!("/usr/share/fonts/noto-cjk/NotoSansCJK-Light.ttc");
-let builder = QuoteProducer::builder()
+let producer = QuoteProducer::builder()
     .font(&bold_font, light_font)
     .output_size(1920, 1080) // optional
     .font_scale(120.0)       // optional
@@ -27,7 +27,7 @@ let builder = QuoteProducer::builder()
 // Create image configuration
 let config = ImgConfig::builder()
     .username("V5电竞俱乐部中单选手 Otto")
-    .avatar_path("./assets/avatar.png")
+    .avatar("./assets/avatar.png")
     .quote("大家好，今天来点大家想看的东西。")
     .build();
 

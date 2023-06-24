@@ -44,13 +44,13 @@ use std::fmt::Display;
 use std::io::Cursor;
 use std::path::Path;
 
-use image::{
-    imageops::{self, FilterType},
-    ImageBuffer, ImageError, ImageFormat, Pixel, Rgba, RgbaImage,
-};
-use imageproc::drawing::draw_text_mut;
-use rusttype::{Font, Scale};
+use image::imageops;
+use image::{ImageError, ImageFormat};
+
+use rusttype::Font;
 use typed_builder::TypedBuilder;
+
+mod components;
 
 #[derive(TypedBuilder)]
 pub struct QuoteProducer<'font> {
@@ -117,103 +117,54 @@ pub struct ImgConfig<'a> {
 
 impl<'font> QuoteProducer<'font> {
     pub fn make_image(&self, config: &ImgConfig) -> Result<Vec<u8>> {
-        let black = Rgba([0, 0, 0, 255]);
-        let (bg_width, bg_height) = self.output_size;
-
-        let mut background = RgbaImage::from_pixel(bg_width, bg_height, black);
-        let avatar = self.produce_avatar(&config.avatar)?;
-        let gradient = self.produce_gradient(avatar.width());
+        let mut background = components::Background::builder()
+            .output_dimension(self.output_size)
+            .build();
 
         // Step 1: Overlay avatar to background
+        let avatar = match config.avatar {
+            SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
+            SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
+        };
+        let avatar = components::Avatar::builder()
+            .img_data(avatar)
+            .bg_height(background.height())
+            .build();
         imageops::overlay(&mut background, &avatar, 0, 0);
 
         // Step 2: Overlay black gradient to avatar
+        let gradient = components::Transition::builder()
+            .avatar_width(avatar.width())
+            .bg_height(background.height())
+            .build();
         let offset = (avatar.width() - gradient.width()) as i64;
         imageops::overlay(&mut background, &gradient, offset, 0);
 
-        // Step 3: Draw font on background
-        self.draw_quote(&mut background, config, avatar.width())?;
+        // Step 3: Overlay quotes to background
+        let quote_info = components::TextDrawInfo::builder()
+            .text(&config.quote)
+            .rgba([255, 255, 255, 255])
+            .scale(self.font_scale)
+            .font(&self.font.bold)
+            .build();
+        let user_info = components::TextDrawInfo::builder()
+            .text(&config.username)
+            .rgba([147, 147, 147, 255])
+            .scale(self.font_scale / 3.0)
+            .font(&self.font.light)
+            .build();
+        let quotes = components::Quotes::builder()
+            .avatar_width(avatar.width())
+            .bg_dim(background.dimensions())
+            .quote_info(quote_info)
+            .user_info(user_info)
+            .build();
+        let offset = avatar.width() as i64;
+        imageops::overlay(&mut background, &quotes, offset, 0);
 
         let mut buffer = Cursor::new(Vec::new());
         background.write_to(&mut buffer, ImageFormat::Jpeg)?;
         Ok(buffer.into_inner())
-    }
-
-    /// Scale and crop the avatar to fit the background.
-    fn produce_avatar(&self, avatar: &SpooledData) -> Result<RgbaImgBuf> {
-        let buffer = match avatar {
-            SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
-            SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
-        };
-
-        let ratio = buffer.width() as f32 / buffer.height() as f32;
-        let bg_height = self.output_size.1;
-        let new_width = (bg_height as f32 * ratio) as u32;
-
-        // scale avatar size to background height
-        let mut buffer = imageops::resize(&buffer, new_width, bg_height, FilterType::CatmullRom);
-
-        // crop 1/4 from left
-        let keep_width = buffer.width() - (buffer.width() / 4);
-        Ok(imageops::crop(&mut buffer, new_width / 4, 0, keep_width, bg_height).to_image())
-    }
-
-    /// Create a transparent to black gradient overlay
-    fn produce_gradient(&self, avatar_width: u32) -> RgbaImgBuf {
-        let mut gradient_overlay = RgbaImage::new(avatar_width / 3, self.output_size.1);
-        let start = Rgba::from_slice(&[0, 0, 0, 0]);
-        let end = Rgba::from_slice(&[0, 0, 0, 255]);
-        imageops::horizontal_gradient(&mut gradient_overlay, start, end);
-        gradient_overlay
-    }
-
-    /// Draw quote on background
-    fn draw_quote(&self, bg: &mut RgbaImgBuf, config: &ImgConfig, avatar_width: u32) -> Result<()> {
-        let white = Rgba([255, 255, 255, 255]);
-        let gray = Rgba([147, 147, 147, 255]);
-        let (bg_width, bg_height) = self.output_size;
-        let quote_font_scale = self.font_scale;
-        let username_font_scale = quote_font_scale - 40.0;
-        let quote_text_scale = Scale::uniform(quote_font_scale);
-        let username_text_scale = Scale::uniform(username_font_scale);
-
-        let quote_lines = split_quotes(&config.quote);
-        let (quote_text_width, quote_text_height) =
-            imageproc::drawing::text_size(quote_text_scale, &self.font.bold, &quote_lines[0]);
-
-        let blank_width = bg_width - avatar_width;
-        let text_gap = blank_width as i32 - quote_text_width;
-        let text_draw_x_offset: i32 = avatar_width as i32 + (text_gap / 2);
-        let mut text_draw_y_offset: i32 = (bg_height as i32 / 3) - quote_text_height;
-
-        for quote in split_quotes(&config.quote) {
-            draw_text_mut(
-                bg,
-                white,
-                text_draw_x_offset,
-                text_draw_y_offset,
-                quote_text_scale,
-                &self.font.bold,
-                &quote,
-            );
-
-            text_draw_y_offset += quote_font_scale as i32;
-        }
-
-        let (usr_text_width, _) =
-            imageproc::drawing::text_size(username_text_scale, &self.font.light, &config.username);
-        let text_draw_x_offset = (text_draw_x_offset + quote_text_width / 2) - usr_text_width / 2;
-        draw_text_mut(
-            bg,
-            gray,
-            text_draw_x_offset,
-            text_draw_y_offset + (quote_font_scale as i32),
-            username_text_scale,
-            &self.font.light,
-            &format!("– {}", config.username),
-        );
-
-        Ok(())
     }
 }
 
@@ -227,24 +178,6 @@ pub enum ErrorKind {
 
 type Result<T, E = ErrorKind> = core::result::Result<T, E>;
 
-/// Alias to the RGBA image buffer type
-type RgbaImgBuf = ImageBuffer<Rgba<u8>, Vec<u8>>;
-
-/// Split long string to multiline
-fn split_quotes(quote: &str) -> Vec<String> {
-    let max_length = 12;
-    quote
-        .lines()
-        .flat_map(|line| {
-            let chars = line.chars().collect::<Vec<_>>();
-            chars
-                .chunks(max_length)
-                .map(|chk| chk.iter().collect::<String>())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<String>>()
-}
-
 #[test]
 fn test_create_background_image() {
     use std::time::Instant;
@@ -256,9 +189,9 @@ fn test_create_background_image() {
         .build();
 
     let config = ImgConfig::builder()
-        .username("V5电竞俱乐部中单选手 Otto")
+        .username("@V5电竞俱乐部中单选手 Otto")
         .avatar("./assets/avatar.png")
-        .quote("大家好，今天来点大家想看的东西。")
+        .quote("大家好，今天来点大家想看的东西。ccccccabackajcka 阿米诺说的道理")
         .build();
 
     let now = Instant::now();

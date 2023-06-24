@@ -41,3 +41,10 @@ std::fs::write("./assets/test.jpg", buffer).unwrap();
 This will provide the below example output:
 
 ![img](./assets/test.jpg)
+
+## Collaboration
+
+If you want to submit code but don't know how to setup Rust environment,
+you can install nix via your package manager OR [follow this instruction](https://nixos.org/download.html).
+Then follow [this instruction](https://nixos.wiki/wiki/Flakes#Enable_flakes) to setup flakes.
+Finally, run `nix develop` in the project root to get `cargo`, `rustc` and `rust-analyzer`...

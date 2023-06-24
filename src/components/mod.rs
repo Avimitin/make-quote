@@ -116,12 +116,13 @@ impl Lines {
         let mut buffer = String::new();
         let (mut max_w, mut max_h) = (0, 0);
         // TODO: This is inefficient, guess and step with multiple characters
-        let mut last = (0, 0);
+        let (mut last_w, mut last_h) = (0, 0);
         for char in info.text.chars() {
             buffer.push(char);
 
             let (w, h) = imageproc::drawing::text_size(info.scale, info.font, &buffer);
-            last = (w, h);
+            last_w = w;
+            last_h = h;
             if w >= limit {
                 // if adding a new character will exceed the limit, used the character before
                 let c = buffer.chars().count();
@@ -135,7 +136,9 @@ impl Lines {
                 max_h += h;
             }
         }
-        lines.push((buffer, last.0, last.1));
+        lines.push((buffer, last_w, last_h));
+        max_w = std::cmp::max(max_w, last_w);
+        max_h += last_h;
 
         Self {
             data: lines,
@@ -183,7 +186,7 @@ impl<'a> From<Quotes<'a>> for RgbaImage {
         let user_info = &quotes.user_info;
         let (w, _) = imageproc::drawing::text_size(user_info.scale, user_info.font, user_info.text);
         let (x, y) = (
-            (canvas.width() / 2 - quotes.gap - (w as u32 / 2)) as i32,
+            centered_text_x(canvas.width(), w, quotes.gap),
             (bg_height - (bg_height / 4)) as i32,
         );
 

@@ -140,8 +140,9 @@ impl<'font> QuoteProducer<'font> {
             SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
             SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
             SpooledData::TgRandom { id, name } => {
+                let letter = name.chars().next().unwrap().to_string();
                 let info = components::TextDrawInfo::builder()
-                    .text(&name[0..1])
+                    .text(&letter)
                     .rgba([255, 255, 255, 255])
                     .scale(300.0)
                     .font(&self.font.bold)

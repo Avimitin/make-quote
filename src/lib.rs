@@ -78,6 +78,7 @@ pub struct FontSet<'font> {
 pub enum SpooledData<'data> {
     InMem(&'data [u8]),
     OnDisk(&'data Path),
+    TgRandom { id: u64, name: String },
 }
 
 pub trait AsSpooledData {
@@ -105,6 +106,19 @@ impl AsSpooledData for [u8] {
     }
 }
 
+impl<'data> AsSpooledData for SpooledData<'data> {
+    fn as_spooled_data(&self) -> SpooledData<'_> {
+        match self {
+            SpooledData::InMem(m) => SpooledData::InMem(m),
+            SpooledData::OnDisk(d) => SpooledData::OnDisk(d),
+            SpooledData::TgRandom { id, name } => SpooledData::TgRandom {
+                id: *id,
+                name: name.to_string(),
+            },
+        }
+    }
+}
+
 #[derive(TypedBuilder)]
 pub struct ImgConfig<'a> {
     #[builder(setter( transform = |s: impl Display| s.to_string() ))]
@@ -122,9 +136,22 @@ impl<'font> QuoteProducer<'font> {
             .build();
 
         // Step 1: Overlay avatar to background
-        let avatar = match config.avatar {
+        let avatar = match &config.avatar {
             SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
             SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
+            SpooledData::TgRandom { id, name } => {
+                let info = components::TextDrawInfo::builder()
+                    .text(&name[0..1])
+                    .rgba([255, 255, 255, 255])
+                    .scale(300.0)
+                    .font(&self.font.bold)
+                    .build();
+                components::TgAvatar::builder()
+                    .id(*id)
+                    .pixel(self.output_size.0)
+                    .info(info)
+                    .build()
+            }
         };
         let avatar = components::Avatar::builder()
             .img_data(avatar)
@@ -198,4 +225,15 @@ fn test_create_background_image() {
     let buffer = builder.make_image(&config).unwrap();
     std::fs::write("./assets/test.jpg", buffer).unwrap();
     println!("elapsed: {} ms", now.elapsed().as_millis());
+    let data = SpooledData::TgRandom {
+        id: 13,
+        name: "ksyx".to_string(),
+    };
+    let config = ImgConfig::builder()
+        .username("@ksyxmeow")
+        .avatar(&data)
+        .quote("教授可爱喵喵喵")
+        .build();
+    let buffer = builder.make_image(&config).unwrap();
+    std::fs::write("./assets/test-tg.jpg", buffer).unwrap();
 }

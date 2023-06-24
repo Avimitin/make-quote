@@ -203,3 +203,43 @@ impl<'a> From<Quotes<'a>> for RgbaImage {
         canvas
     }
 }
+
+#[derive(TypedBuilder)]
+#[builder(build_method(into = RgbaImage))]
+pub struct TgAvatar<'a> {
+    id: u64,
+    pixel: u32,
+    info: TextDrawInfo<'a>,
+}
+
+const COLOR: [[u8; 4]; 7] = [
+    [255, 81, 106, 255],
+    [255, 168, 92, 255],
+    [214, 105, 237, 255],
+    [214, 105, 237, 255],
+    [214, 105, 237, 255],
+    [214, 105, 237, 255],
+    [214, 105, 237, 255],
+];
+
+impl<'a> From<TgAvatar<'a>> for RgbaImage {
+    fn from(data: TgAvatar) -> Self {
+        let avatar_color = Rgba::from(COLOR[data.id as usize % 7]);
+
+        let mut canvas = RgbaImage::from_pixel(data.pixel, data.pixel, avatar_color);
+        let letter = data.info.text.to_uppercase();
+        let (_, h) = imageproc::drawing::text_size(data.info.scale, data.info.font, &letter);
+        let xy = (data.pixel as i32 / 2) - h;
+        imageproc::drawing::draw_text_mut(
+            &mut canvas,
+            data.info.rgba,
+            xy,
+            xy,
+            data.info.scale,
+            data.info.font,
+            &letter,
+        );
+
+        canvas
+    }
+}

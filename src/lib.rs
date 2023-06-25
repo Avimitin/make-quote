@@ -191,7 +191,7 @@ impl<'font> QuoteProducer<'font> {
         let user_info = components::TextDrawInfo::builder()
             .text(&config.username)
             .rgba([147, 147, 147, 255])
-            .scale(self.font_scale / 3.0)
+            .scale(self.font_scale / 2.0)
             .font(&self.font.light)
             .build();
         let quotes = components::Quotes::builder()

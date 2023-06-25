@@ -36,15 +36,22 @@ impl<'a> TextDrawInfo<'a> {
 
 pub struct Lines {
     // line text, line width, line height
-    data: Vec<(String, i32, i32)>,
+    data: Vec<Line>,
     // Total required space width and height
     size: (i32, i32),
 }
 
-impl std::iter::IntoIterator for Lines {
-    type Item = (String, i32, i32);
+pub struct Line {
+    pub text: String,
+    pub width: i32,
+    pub height: i32,
+    pub first_letter_width: i32,
+}
 
-    type IntoIter = std::vec::IntoIter<(String, i32, i32)>;
+impl std::iter::IntoIterator for Lines {
+    type Item = Line;
+
+    type IntoIter = std::vec::IntoIter<Line>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.into_iter()
@@ -52,9 +59,9 @@ impl std::iter::IntoIterator for Lines {
 }
 
 impl<'a> std::iter::IntoIterator for &'a Lines {
-    type Item = &'a (String, i32, i32);
+    type Item = &'a Line;
 
-    type IntoIter = std::slice::Iter<'a, (String, i32, i32)>;
+    type IntoIter = std::slice::Iter<'a, Line>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.data.iter()
@@ -78,8 +85,17 @@ impl Lines {
                 // if adding a new character will exceed the limit, used the character before
                 let c = buffer.chars().count();
                 let s = buffer.chars().take(c - 1).collect::<String>();
-                let data = (s, w, h);
-                lines.push(data);
+                let (fw, _) = imageproc::drawing::text_size(
+                    info.scale,
+                    info.font,
+                    &buffer.chars().next().unwrap().to_string(),
+                );
+                lines.push(Line {
+                    text: s,
+                    width: w,
+                    height: h,
+                    first_letter_width: fw,
+                });
                 buffer.clear();
                 buffer.push(char);
 
@@ -87,7 +103,17 @@ impl Lines {
                 max_h += h;
             }
         }
-        lines.push((buffer, last_w, last_h));
+        let (fw, _) = imageproc::drawing::text_size(
+            info.scale,
+            info.font,
+            &buffer.chars().next().unwrap().to_string(),
+        );
+        lines.push(Line {
+            text: buffer,
+            width: last_w,
+            height: last_h,
+            first_letter_width: fw,
+        });
         max_w = std::cmp::max(max_w, last_w);
         max_h += last_h;
 

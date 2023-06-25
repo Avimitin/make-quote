@@ -36,8 +36,9 @@ impl<'a> From<Quotes<'a>> for RgbaImage {
         let (_, quote_height) = lines.size();
         let mut current_draw_height = (bg_height as i32 / 2) - quote_height;
         let quote_info = &quotes.quote_info;
-        for (text, width, height) in lines {
-            let x = centered_text_x(canvas.width(), width, quotes.gap);
+        for line in lines {
+            let x =
+                centered_text_x(canvas.width(), line.width, quotes.gap) - line.first_letter_width;
             imageproc::drawing::draw_text_mut(
                 &mut canvas,
                 quote_info.color(),
@@ -45,9 +46,9 @@ impl<'a> From<Quotes<'a>> for RgbaImage {
                 current_draw_height,
                 quote_info.scale(),
                 quote_info.font(),
-                &text,
+                &line.text,
             );
-            current_draw_height += height;
+            current_draw_height += line.height;
         }
 
         // Start drawing username

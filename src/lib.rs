@@ -137,8 +137,20 @@ impl<'font> QuoteProducer<'font> {
 
         // Step 1: Overlay avatar to background
         let avatar = match &config.avatar {
-            SpooledData::InMem(buffer) => image::load_from_memory(buffer)?.into_rgba8(),
-            SpooledData::OnDisk(path) => image::open(path)?.into_rgba8(),
+            SpooledData::InMem(buffer) => {
+                let img_data = image::load_from_memory(buffer)?.into_rgba8();
+                components::Avatar::builder()
+                    .img_data(img_data)
+                    .bg_height(background.height())
+                    .build()
+            }
+            SpooledData::OnDisk(path) => {
+                let img_data = image::open(path)?.into_rgba8();
+                components::Avatar::builder()
+                    .img_data(img_data)
+                    .bg_height(background.height())
+                    .build()
+            }
             SpooledData::TgRandom { id, name } => {
                 let letter = name.chars().next().unwrap().to_string();
                 let info = components::TextDrawInfo::builder()
@@ -147,17 +159,18 @@ impl<'font> QuoteProducer<'font> {
                     .scale(300.0)
                     .font(&self.font.bold)
                     .build();
-                components::TgAvatar::builder()
+                let img_data = components::TgAvatar::builder()
                     .id(*id)
-                    .pixel(self.output_size.0)
                     .info(info)
+                    .bg_dim(background.dimensions())
+                    .build();
+                components::Avatar::builder()
+                    .img_data(img_data)
+                    .bg_height(background.height())
+                    .enable_crop(false)
                     .build()
             }
         };
-        let avatar = components::Avatar::builder()
-            .img_data(avatar)
-            .bg_height(background.height())
-            .build();
         imageops::overlay(&mut background, &avatar, 0, 0);
 
         // Step 2: Overlay black gradient to avatar

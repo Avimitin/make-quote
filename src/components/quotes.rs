@@ -37,8 +37,8 @@ impl<'a> From<Quotes<'a>> for RgbaImage {
         let mut current_draw_height = (bg_height as i32 / 2) - quote_height;
         let quote_info = &quotes.quote_info;
         for line in lines {
-            let x = centered_text_x(canvas.width(), line.width, quotes.gap)
-                - line.first_letter_width / 2;
+            let x =
+                centered_text_x(canvas.width(), line.width, quotes.gap) - line.first_char_width / 2;
             imageproc::drawing::draw_text_mut(
                 &mut canvas,
                 quote_info.color(),

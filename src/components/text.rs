@@ -45,7 +45,7 @@ pub struct Line {
     pub text: String,
     pub width: i32,
     pub height: i32,
-    pub first_letter_width: i32,
+    pub first_char_width: i32,
 }
 
 impl std::iter::IntoIterator for Lines {
@@ -72,54 +72,52 @@ impl Lines {
     pub fn new(info: &TextDrawInfo<'_>, limit: i32) -> Self {
         let mut lines = Vec::new();
         let mut buffer = String::new();
-        let (mut max_w, mut max_h) = (0, 0);
+        let (mut text_area_w, mut text_area_h) = (0, 0);
+        let total = info.text.chars().count();
+
         // TODO: This is inefficient, guess and step with multiple characters
-        let (mut last_w, mut last_h) = (0, 0);
-        for char in info.text.chars() {
+        for (idx, char) in info.text.chars().enumerate() {
             buffer.push(char);
 
-            let (w, h) = imageproc::drawing::text_size(info.scale, info.font, &buffer);
-            last_w = w;
-            last_h = h;
-            if w >= limit {
-                // if adding a new character will exceed the limit, used the character before
-                let c = buffer.chars().count();
-                let s = buffer.chars().take(c - 1).collect::<String>();
-                let (fw, _) = imageproc::drawing::text_size(
+            let (line_w, line_h) = imageproc::drawing::text_size(info.scale, info.font, &buffer);
+
+            let drop_needed = line_w >= limit || char == '\n';
+            let match_newline = drop_needed || idx == total - 1;
+            if match_newline {
+                let new_line = if drop_needed {
+                    let n = buffer.chars().count();
+                    let s = buffer.chars().take(n - 1).collect::<String>();
+                    buffer.clear();
+                    // we need to put the char back to next line, except the '\n' character.
+                    if line_w >= limit {
+                        buffer.push(char);
+                    }
+
+                    s
+                } else {
+                    buffer.to_string()
+                };
+
+                let (fcw, _) = imageproc::drawing::text_size(
                     info.scale,
                     info.font,
-                    &buffer.chars().next().unwrap().to_string(),
+                    &new_line.chars().next().unwrap().to_string(),
                 );
                 lines.push(Line {
-                    text: s,
-                    width: w,
-                    height: h,
-                    first_letter_width: fw,
+                    text: new_line,
+                    width: line_w,
+                    height: line_h,
+                    first_char_width: fcw,
                 });
-                buffer.clear();
-                buffer.push(char);
 
-                max_w = std::cmp::max(max_w, w);
-                max_h += h;
+                text_area_w = std::cmp::max(text_area_w, line_w);
+                text_area_h += line_h;
             }
         }
-        let (fw, _) = imageproc::drawing::text_size(
-            info.scale,
-            info.font,
-            &buffer.chars().next().unwrap().to_string(),
-        );
-        lines.push(Line {
-            text: buffer,
-            width: last_w,
-            height: last_h,
-            first_letter_width: fw,
-        });
-        max_w = std::cmp::max(max_w, last_w);
-        max_h += last_h;
 
         Self {
             data: lines,
-            size: (max_w, max_h),
+            size: (text_area_w, text_area_h),
         }
     }
 

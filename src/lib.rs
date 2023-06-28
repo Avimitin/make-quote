@@ -232,7 +232,7 @@ fn test_create_background_image() {
     let config = ImgConfig::builder()
         .username("@V5电竞俱乐部中单选手 Otto")
         .avatar("./assets/avatar.png")
-        .quote("大家好，今天来点大家想看的东西。ccccccabackajcka 阿米诺说的道理")
+        .quote("大家好，今天来点大家想看的东西。\nccccccabackajcka 阿米诺说的道理")
         .build();
 
     let now = Instant::now();
